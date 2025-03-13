@@ -1,0 +1,96 @@
+
+//One Way
+
+package com.shoppingcard.service;
+
+import com.shoppingcard.entity.Endpoint;
+import com.shoppingcard.repository.EndpointRepository;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.Arrays;
+import java.util.List;
+
+@Service
+public class EndpointService {
+
+    @Autowired
+    private EndpointRepository endpointRepository;
+
+    @PostConstruct
+    public void initEndpoints() {
+        if (endpointRepository.count() == 0) { // Avoid duplicate inserts on restart
+            List<Endpoint> defaultEndpoints = Arrays.asList(
+                new Endpoint(0, "Get Orders", "/orders", "OrderController", true),
+                new Endpoint(0, "Create Order", "/orders/create", "OrderController", true),
+                new Endpoint(0, "Delete Order", "/orders/delete", "OrderController", true)
+            );
+
+            endpointRepository.saveAll(defaultEndpoints);
+            System.out.println("✅ Default Endpoints inserted successfully!");
+        }
+    }
+
+    public Endpoint saveEndpoint(Endpoint endpoint) {
+        return endpointRepository.save(endpoint);
+    }
+}
+
+//way to
+package in.sushit;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import in.sushit.entity.Farmer;
+import in.sushit.repository.farmerRepository;
+import jakarta.annotation.PostConstruct;
+
+@SpringBootApplication
+public class FarmerAppJpaApplication {
+
+	@Autowired
+	private farmerRepository repo;
+	public static void main(String[] args) {
+		SpringApplication.run(FarmerAppJpaApplication.class, args);   
+	}
+	
+	 @PostConstruct
+	    public void insertData() {
+	        if (repo.count() == 0) {  // Prevent duplicate insertion
+           Farmer farmer =new Farmer();	        	farmer.setFarmerName("Sushant");
+	           farmer.setFarmerLastName("Polkat");
+	           farmer.setEmail("polkatsushant@gmail.com");
+	           farmer.setContactNumber("56789");
+	           
+	            
+           Farmer farmer1 =new Farmer();           
+	           farmer1.setFarmerName("Rudra");
+	           farmer1.setFarmerLastName("Pratap");
+           farmer1.setEmail("rudra@gmail.com");
+	           farmer1.setContactNumber("23456");
+	            repo.saveAll(Arrays.asList(farmer, farmer1));
+	            System.out.println("Initial student data inserted successfully!");
+        }
+		 
+		 
+//		 ArrayList<Farmer> f = new ArrayList<Farmer>();
+//	        f.add(new Farmer( "Sushant","Polkat","polkatsushant@gmail.com","9511281724", Arrays.asList("wheat","cotton","beans")));
+//	        f.add(new Farmer("Parshant","Polkat","prashantpolkat1998@gmail.com","9834654485",Arrays.asList("Haldi","Sugarcane")));
+//	        f.add(new Farmer("Vijaya ", "Polkat", "vp@gmail.com", "45678", Arrays.asList("Chana","Soyabean")));
+		 
+		 List<Farmer> farmers = Arrays.asList(
+		            new Farmer("Sushant", "Polkat", "polkatsushant@gmail.com", "9511281724", Arrays.asList("Wheat", "Cotton", "Beans")),
+		            new Farmer("Prashant", "Polkat", "prashantpolkat1998@gmail.com", "9834654485", Arrays.asList("Haldi", "Sugarcane")),
+		            new Farmer("Vijaya", "Polkat", "vp@gmail.com", "45678", Arrays.asList("Chana", "Soyabean"))
+		        );
+	        repo.saveAll(farmers);
+	 }
+}
+
