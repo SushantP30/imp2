@@ -1,0 +1,331 @@
+//HomeControllerTest
+package com.shoppingcard.controller;
+
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.shoppingcard.model.LoginRequest;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.mockito.MockedStatic;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shoppingcard.entity.CityMaster;
+import com.shoppingcard.entity.State;
+import com.shoppingcard.model.JwtResponse;
+import com.shoppingcard.model.SignupRequest;
+import com.shoppingcard.service.MasterTableService;
+import com.shoppingcard.service.RefreshTokenService;
+import com.shoppingcard.service.UserService;
+import com.shoppingcard.utils.AESUtils;
+import com.shoppingcard.utils.EndpointInitializer;
+
+@ExtendWith(MockitoExtension.class)
+class HomeControllerTest {
+
+	public static Map<String, String> IvKey = new HashMap<>();
+	private MockMvc mockMvc;
+
+	@Mock
+	private RefreshTokenService refreshTokenService;
+
+	@Mock
+	private UserService userService;
+
+	@Mock
+	private MasterTableService masterTableService;
+
+	@Mock
+	private EndpointInitializer endpointInitializer;
+
+	@Mock
+	private SignupRequest signupRequest;
+	@InjectMocks
+	private HomeController homeController;
+
+	@Mock
+	private LoginRequest loginRequest;
+	private ObjectMapper objectMapper;
+
+	@BeforeEach
+	void setUp() {
+		mockMvc = MockMvcBuilders.standaloneSetup(homeController).build();
+		objectMapper = new ObjectMapper();
+	}
+
+	@Test
+	void testRefreshEndpoints() throws Exception {
+		mockMvc.perform(get("/home/refresh-endpoints")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Endpoints refreshed successfully!"));
+	}
+
+	@Test
+	void testRenewAccessToken() throws Exception {
+		String refreshToken = "test-refresh-token";
+		when(refreshTokenService.generateAccessToken(refreshToken)).thenReturn("new-access-token");
+
+		mockMvc.perform(
+				post("/home/refresh-access-token").content(refreshToken).contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.message").value("Access Token Generated"));
+	}
+
+	@Test
+	void testLoginUser() throws Exception {
+		// LoginRequest loginRequest = new LoginRequest("testUser", "password");
+		JwtResponse jwtResponse = new JwtResponse("accessToken", "refreshToken");
+		when(refreshTokenService.userLogin(any(LoginRequest.class), any())).thenReturn(jwtResponse);
+
+		mockMvc.perform(post("/home/login").content(objectMapper.writeValueAsString(loginRequest))
+				.contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Login Successful"));
+	}
+
+	@Test
+	void testGetIvKey() throws Exception {
+		Map<String, String> keyMap = new HashMap<>();
+		keyMap.put("key", "value");
+
+		// Mock the static method
+		try (MockedStatic<AESUtils> mockedStatic = mockStatic(AESUtils.class)) {
+			mockedStatic.when(AESUtils::generateKeyAndValue).thenReturn(keyMap);
+
+			mockMvc.perform(get("/home/get-key")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.message").value("IV key Generated"))
+					.andExpect(jsonPath("$.success").value(true));
+		}
+	}
+
+	@Test
+	void testCreateUser() throws Exception {
+		// SignupRequest signupRequest = new SignupRequest(new RegistrationDTO(), new
+		// AddressDTO(), "testKey");
+		doNothing().when(userService).saveUserDetails(any(), any(), any());
+
+		mockMvc.perform(post("/home/signup").content(objectMapper.writeValueAsString(signupRequest))
+				.contentType(MediaType.APPLICATION_JSON)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Signup Successful"));
+	}
+
+	@Test
+	void testGetState() throws Exception {
+		List<State> states = Arrays.asList(new State(1, "State1"), new State(2, "State2"));
+		when(masterTableService.fetchState(1)).thenReturn(states);
+
+		mockMvc.perform(get("/home/fetch-states/1")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Data fetched successfully"));
+	}
+
+	@Test
+	void testGetCity() throws Exception {
+		List<CityMaster> cities = Arrays.asList(new CityMaster(1, "City1"), new CityMaster(2, "City2"));
+		when(masterTableService.fetchCity(1)).thenReturn(cities);
+
+		mockMvc.perform(get("/home/fetch-cities/1")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Data fetched successfully"));
+	}
+}
+
+//DashboardControllerTest
+
+package com.shoppingcard.controller;
+
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import java.util.Set;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import com.shoppingcard.couchconfig.CouchDBService;
+
+@ExtendWith(MockitoExtension.class)
+class DashboardControllerTest {
+
+    private MockMvc mockMvc;
+
+    @Mock
+    private CouchDBService couchDBService;
+
+    @InjectMocks
+    private DashboardController dashboardController;
+
+    @Test
+    void testGetImageName() throws Exception {
+        // Mock data
+        String docId = "12345";
+        Set<String> mockImageNames = Set.of("image1.jpg", "image2.png");
+
+        // Mock CouchDBService behavior
+        when(couchDBService.fetchFilenamesById(docId)).thenReturn(mockImageNames);
+
+        // Setup MockMvc
+        mockMvc = MockMvcBuilders.standaloneSetup(dashboardController).build();
+
+        // Perform the GET request and validate response
+        mockMvc.perform(get("/dashboard/fetch-images-name/{docid}", docId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Data fetched successfully"))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data", containsInAnyOrder("image1.jpg", "image2.png"))); // Ignores order
+
+        // Verify that the mock service was called once
+        verify(couchDBService, times(1)).fetchFilenamesById(docId);
+    }
+
+}
+
+//pom.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.4.2</version>
+		<relativePath /> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.shoppingcard</groupId>
+	<artifactId>fdc</artifactId>
+	<version>2.5.2-SNAPSHOT</version>
+	<packaging>war</packaging>
+	<name>shoppingcard_fdc</name>
+	<description>Shoping Card API</description>
+	<url />
+	<licenses>
+		<license />
+	</licenses>
+	<developers>
+		<developer />
+	</developers>
+	<scm>
+		<connection />
+		<developerConnection />
+		<tag />
+		<url />
+	</scm>
+	<properties>
+		<java.version>17</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-tomcat</artifactId>
+			<!--			<scope>provided</scope>-->
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.11.5</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.11.5</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+                        <artifactId>jjwt-jackson</artifactId>  <!-- Required for JSON serialization -->
+			<version>0.11.5</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.ektorp</groupId>
+			<artifactId>org.ektorp</artifactId>
+			<version>1.5.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		<!--
+		https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-starter-webmvc-ui -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.8.5</version>
+		</dependency>
+         <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
+<dependency>
+    <groupId>org.junit.jupiter</groupId>
+    <artifactId>junit-jupiter-api</artifactId>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.junit.jupiter</groupId>
+    <artifactId>junit-jupiter-engine</artifactId>
+    <scope>test</scope>
+</dependency>
+
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+
