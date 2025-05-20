@@ -1,0 +1,254 @@
+package com.shoppingcard.service;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.shoppingcard.entity.AppModule;
+import com.shoppingcard.entity.Endpoint;
+import com.shoppingcard.entity.ModulePermissionEndpoint;
+import com.shoppingcard.entity.MpeHasRole;
+import com.shoppingcard.entity.Permission;
+import com.shoppingcard.entity.Registration;
+import com.shoppingcard.entity.Roles;
+import com.shoppingcard.entity.SubModule;
+import com.shoppingcard.model.SuperAdminProperties;
+import com.shoppingcard.repo.EndpointRepo;
+import com.shoppingcard.repo.ModulePermissionEndpointRepo;
+import com.shoppingcard.repo.ModuleRepo;
+import com.shoppingcard.repo.MpeHasRoleRepo;
+import com.shoppingcard.repo.PermissionRepo;
+import com.shoppingcard.repo.RegistrationRepo;
+import com.shoppingcard.repo.RolesRepo;
+import com.shoppingcard.repo.SubModuleRepo;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
+
+@Service
+@DependsOn("endpointInitializer")
+public class InitialDataLoader {
+
+    @Autowired
+    private RolesRepo rolesRepo;
+
+    @Autowired
+    private PermissionRepo permissionRepo;
+
+    @Autowired
+    private RegistrationRepo registrationRepo;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private SuperAdminProperties superAdminProperties;
+
+    @Autowired
+    private MpeHasRoleRepo mpeHasRolerepo;
+
+    @Autowired
+    private ModulePermissionEndpointRepo modulePermissionEndpointRepo;
+
+    @Autowired
+    private ModuleRepo moduleRepo;
+
+    @Autowired
+    private SubModuleRepo subModuleRepo;
+
+    @Autowired
+    private EndpointRepo endPointrepo;
+
+    @PostConstruct
+    @Transactional
+    public void initializeSuperAdmin() {
+
+        // Step 1: Create SuperAdmin role with permissions if not exist
+        Roles superAdminRole = rolesRepo.fetchRoleByName("SuperAdmin")
+                .stream().findFirst()
+                .orElseGet(this::createSuperAdminRoleWithPermissions);
+
+        // Step 2: Create SuperAdmin user if not exist
+        String superAdminUsername = superAdminProperties.getUsername();
+        if (registrationRepo.findByUsername(superAdminUsername).isEmpty()) {
+
+            Registration superAdminUser = new Registration();
+            superAdminUser.setUsername(superAdminUsername);
+            superAdminUser.setEmailId("superadmin123@gmail.com");
+            superAdminUser.setPassword(passwordEncoder.encode(superAdminProperties.getPassword()));
+            superAdminUser.setRoles(Set.of(superAdminRole));
+            superAdminUser.setActive(true);
+            registrationRepo.save(superAdminUser);
+
+            // Step 3: Create Application Module
+            AppModule module = new AppModule();
+            module.setModuleName("RMS");
+            module.setViewModuleName("RMS");
+            module.setActive(true);
+            module.setCreatedBy("superAdmin");
+            module.setLastModifiedBy("superAdmin");
+            moduleRepo.save(module);
+
+            // Step 4: Create SubModules
+            SubModule submodule1 = new SubModule();
+            submodule1.setSubmoduleName("Module Endpoints Manager");
+            submodule1.setActive(true);
+
+            SubModule module2 = new SubModule();
+            module2.setSubmoduleName("Modules");
+            module2.setActive(true);
+
+            SubModule module3 = new SubModule();
+            module3.setSubmoduleName("Endpoints");
+            module3.setActive(true);
+
+            SubModule module4 = new SubModule();
+            module4.setSubmoduleName("Permission");
+            module4.setActive(true);
+
+            SubModule module5 = new SubModule();
+            module5.setSubmoduleName("Module Permission Endpoints");
+            module5.setActive(true);
+
+            SubModule module6 = new SubModule();
+            module6.setSubmoduleName("Roles");
+            module6.setActive(true);
+            module6.setCreatedBy("superAdmin");
+
+            SubModule module7 = new SubModule();
+            module7.setSubmoduleName("test dynamic API");
+            module7.setActive(true);
+            module7.setCreatedBy("superAdmin");
+
+            SubModule module8 = new SubModule();
+            module8.setSubmoduleName("Set MPE");
+            module8.setActive(true);
+            module8.setCreatedBy("superAdmin");
+
+            List<SubModule> subModules = List.of(submodule1, module2, module3, module4, module5, module6, module7, module8);
+            subModuleRepo.saveAll(subModules);
+
+            // Step 5: Fetch and save endpoints
+            List<Endpoint> allRmsEndpoints = endPointrepo.fetchRmsActiveEndPoints();
+           // List<Endpoint> activeEndpointsAfterLogin = endPointrepo.fetchEndpointsAfterLogin();
+            List<Endpoint> activeEndpointsAfterLogin =endPointrepo.findByEndpointUrl("/user-profile/fetch-mpes-after-login");
+
+            Set<Endpoint> combinedEndpoints = new HashSet<>();
+            combinedEndpoints.addAll(allRmsEndpoints);
+            combinedEndpoints.addAll(activeEndpointsAfterLogin);
+
+            endPointrepo.saveAll(combinedEndpoints);
+
+            // Step 6: Create MPEs and assign SuperAdmin Role
+            for (Endpoint endpoint : combinedEndpoints) {
+                ModulePermissionEndpoint mpe = new ModulePermissionEndpoint();
+                mpe.setEndpoint(endpoint);
+                modulePermissionEndpointRepo.save(mpe);
+
+                MpeHasRole mpeHasRole = new MpeHasRole();
+                mpeHasRole.setRoles(superAdminRole);
+                mpeHasRole.setModulePermissionEndpoint(mpe);
+                mpeHasRole.setActive(true);
+                mpeHasRolerepo.save(mpeHasRole);
+            }
+        }
+    }
+
+    private Roles createSuperAdminRoleWithPermissions() {
+        Roles superAdminRole = new Roles();
+        superAdminRole.setRoles("SuperAdmin");
+        superAdminRole.setRoleName("Super Administrator");
+        superAdminRole.setActive(true);
+        superAdminRole = rolesRepo.save(superAdminRole);
+
+        List<Permission> allPermissions = permissionRepo.fetchActivePermissions();
+        for (Permission permission : allPermissions) {
+            ModulePermissionEndpoint mpe = new ModulePermissionEndpoint();
+            mpe.setPermission(permission);
+            modulePermissionEndpointRepo.save(mpe);
+            
+            MpeHasRole mpeHasRole = new MpeHasRole();
+            mpeHasRole.setRoles(superAdminRole);
+            mpeHasRole.setModulePermissionEndpoint(mpe);
+            mpeHasRole.setActive(true);
+        }
+
+        return superAdminRole;
+    }
+}
+
+
+//security
+
+package com.shoppingcard.jwtsecurity;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.shoppingcard.entity.Endpoint;
+import com.shoppingcard.repo.MpeHasRoleRepo;
+import com.shoppingcard.service.RoleService;
+import com.shoppingcard.utils.ApplicationLogger;
+import com.shoppingcard.utils.MessageConstant;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+
+public class CustomRoleBasedAuthorizationFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private RoleService roleService;
+
+    @Autowired
+    private MpeHasRoleRepo mpeHasRoleRepo;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication == null || !authentication.isAuthenticated();
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String requestURI = request.getRequestURI();
+
+        // Whitelist specific endpoint without role checks
+        if ("/user-profile/fetch-mpes-after-login".equalsIgnoreCase(requestURI)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        Collection<? extends GrantedAuthority> authorities = JwtUtils.getAuthorities();
+
+        boolean isAuthorized = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .map(role -> roleService.fetchEndpointByRoleName(role))
+                .flatMap(List::stream)
+                .anyMatch(endpoint -> endpoint.getEndpointUrl().equalsIgnoreCase(requestURI));
+
+        if (!isAuthorized) {
+            ApplicationLogger.logAsyncServiceData("Unauthorized access to endpoint: " + requestURI);
+            JwtUtils.sendErrorResponse(response, HttpStatus.UNAUTHORIZED.value(), MessageConstant.ERROR1094);
+            return;
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
