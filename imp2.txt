@@ -94,3 +94,17 @@ public class FarmerAppJpaApplication {
 	 }
 }
 
+
+
+
+
+
+
+Task: Changes in Aadhaar Authentication 2.5.1
+
+ Sub-Aua Code and License keys should be fetched from database.
+One Column should be present to control the access.
+Store these data in L2-Cache / In-memory Cache.
+Cache should be update on the start of application and one time in 24 H (morning 6 A.M is preferable).
+Every request should be used Sub-Aua Code and License Keys from Cache.
+Test all the code in Local PC and then in Staging.
