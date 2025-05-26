@@ -1,0 +1,533 @@
+//class
+package com.shoppingcard.service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.shoppingcard.entity.AppModule;
+import com.shoppingcard.entity.Endpoint;
+import com.shoppingcard.entity.ModulePermissionEndpoint;
+import com.shoppingcard.entity.MpeHasRole;
+import com.shoppingcard.entity.Permission;
+import com.shoppingcard.entity.Registration;
+import com.shoppingcard.entity.Roles;
+import com.shoppingcard.entity.SubModule;
+import com.shoppingcard.model.SuperAdminProperties;
+import com.shoppingcard.repo.EndpointRepo;
+import com.shoppingcard.repo.ModulePermissionEndpointRepo;
+import com.shoppingcard.repo.ModuleRepo;
+import com.shoppingcard.repo.MpeHasRoleRepo;
+import com.shoppingcard.repo.PermissionRepo;
+import com.shoppingcard.repo.RegistrationRepo;
+import com.shoppingcard.repo.RolesRepo;
+import com.shoppingcard.repo.SubModuleRepo;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
+
+@Service
+@DependsOn("endpointInitializer")
+public class InitialDataLoader {
+
+	ModulePermissionEndpoint mpe1;
+	@Autowired
+	private RolesRepo rolesRepo;
+
+	@Autowired
+	private RegistrationRepo registrationRepo;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Autowired
+	private SuperAdminProperties superAdminProperties;
+
+	@Autowired
+	private MpeHasRoleRepo mpeHasRolerepo;
+
+	@Autowired
+	private ModulePermissionEndpointRepo modulePermissionEndpointRepo;
+
+	@Autowired
+	private ModuleRepo moduleRepo;
+
+	@Autowired
+	private SubModuleRepo subModuleRepo;
+
+	@Autowired
+	private EndpointRepo endPointrepo;
+
+//    @PostConstruct
+//    @DependsOn("endpointInitializer")
+//    @Transactional
+//    public void initializeSuperAdmin() {
+//
+//    	
+//    	 ModulePermissionEndpoint mpe1;
+//        // Step 1: Create SuperAdmin role with permissions if not exist
+//        Roles superAdminRole = rolesRepo.fetchRoleByName("SuperAdmin")
+//                .stream().findFirst()
+//                .orElseGet(this::createSuperAdminRoleWithPermissions);
+//
+//        // Step 2: Create SuperAdmin user if not exist
+//        String superAdminUsername = superAdminProperties.getUsername();
+//        if (registrationRepo.findByUsername(superAdminUsername).isEmpty()) {
+//        	
+//            Registration superAdminUser = new Registration();
+//            superAdminUser.setUsername(superAdminUsername);
+//            superAdminUser.setEmailId("superadmin123@gmail.com");
+//            
+//            superAdminUser.setPassword(passwordEncoder.encode(superAdminProperties.getPassword()));
+//            superAdminUser.setRoles(Set.of(superAdminRole));
+//            superAdminUser.setActive(true);
+//            registrationRepo.save(superAdminUser);
+//        }
+//        
+//        Optional<AppModule> existingModuleOpt = moduleRepo.findByModuleName("RMS");
+//
+//        if (existingModuleOpt.isEmpty()) {
+//            AppModule module = new AppModule();
+//            module.setActive(true);
+//            module.setModuleName("RMS");
+//            module.setCreatedBy("Super Admin");
+//            module.setLastModifiedBy("Super Admin");
+//            module.setViewModuleName("RMS_FETCH_ACTIVE_MODULES");
+//
+//            // Create SubModules
+//            SubModule subModule1 = new SubModule();
+//            subModule1.setActive(true);
+//            subModule1.setSubmoduleName("Modules Endpoints Manager");
+//            subModule1.setCreatedBy("Super Admin");
+//            subModule1.setLastModifiedBy("Super Admin");
+//            subModule1.setSubmodulePath("/fetch-submodules");
+//            subModule1.setViewSubmoduleName("Modules Endpoints Manager");
+//
+//            SubModule subModule2 = new SubModule();
+//            subModule2.setActive(true);
+//            subModule2.setSubmoduleName("Modules");
+//            subModule2.setCreatedBy("Super Admin");
+//            subModule2.setLastModifiedBy("Super Admin");
+//
+//            SubModule subModule3 = new SubModule();
+//            subModule3.setActive(true);
+//            subModule3.setSubmoduleName("Endpoints");
+//            subModule3.setCreatedBy("Super Admin");
+//            subModule3.setLastModifiedBy("Super Admin");
+//
+//            SubModule subModule4 = new SubModule();
+//            subModule4.setActive(true);
+//            subModule4.setSubmoduleName("Permission");
+//            subModule4.setCreatedBy("Super Admin");
+//            subModule4.setLastModifiedBy("Super Admin");
+//
+//            SubModule subModule5 = new SubModule();
+//            subModule5.setActive(true);
+//            subModule5.setSubmoduleName("Modules Permission Endpoints");
+//            subModule5.setCreatedBy("Super Admin");
+//            subModule5.setLastModifiedBy("Super Admin");
+//
+//            SubModule subModule6 = new SubModule();
+//            subModule6.setActive(true);
+//            subModule6.setSubmoduleName("Roles");
+//            subModule6.setCreatedBy("Super Admin");
+//            subModule6.setLastModifiedBy("Super Admin");
+//
+//            SubModule subModule7 = new SubModule();
+//            subModule7.setActive(true);
+//            subModule7.setSubmoduleName("test dynamic API");
+//            subModule7.setCreatedBy("Super Admin");
+//            subModule7.setLastModifiedBy("Super Admin");
+//
+//            SubModule subModule8 = new SubModule();
+//            subModule8.setActive(true);
+//            subModule8.setSubmoduleName("Set MPE");
+//            subModule8.setCreatedBy("Super Admin");
+//            subModule8.setLastModifiedBy("Super Admin");
+//
+//            // Link submodules to module
+//            List<SubModule> subModules = List.of(
+//                subModule1, subModule2, subModule3, subModule4,
+//                subModule5, subModule6, subModule7, subModule8
+//            );
+//
+//            subModules.forEach(sm -> sm.setAppModule(module));
+//            module.setSubModules(subModules);
+//
+//            // Save
+//            moduleRepo.save(module);
+//            subModuleRepo.saveAll(subModules);
+//        } else {
+//            System.out.println("AppModule with name 'RMS' already exists. Skipping creation.");
+//        }
+//        
+//        
+//        List<Endpoint> allRmsEndpoints = endPointrepo.fetchRmsActiveEndPoints();
+//        
+//        System.out.println("allRmsEndpoints:::;;;;;;;"+allRmsEndpoints);
+//       // List<Endpoint> activeEndpointsAfterLogin = endPointrepo.findByEndpointUrl("/user-profile/fetch-mpes-after-login");
+//        System.out.println("+++++++++++++++++++++++++++++======================++++++++++++++++++++");
+//        List<Endpoint> activeEndpointsAfterLogin=endPointrepo.fetchEndpointsAfterLogin();
+//        System.out.println("activeEndpointsAfterLogin:::;;;;;"+activeEndpointsAfterLogin);
+//        
+//        Set<Endpoint> combinedEndpoints = new HashSet<>();
+//        combinedEndpoints.addAll(allRmsEndpoints);
+//        combinedEndpoints.addAll(activeEndpointsAfterLogin);
+//       
+//        System.out.println("combinedEndpoints:::"+combinedEndpoints);
+//
+//        endPointrepo.saveAll(combinedEndpoints);
+//        
+//       
+//        List<Endpoint> endpointsList = new ArrayList<>(combinedEndpoints); // convert Set to List
+//       
+//        int subModuleCount = subModules.size();
+//
+//        for (int i = 0; i < endpointsList.size(); i++) {
+//            Endpoint endpoint = endpointsList.get(i);
+//            SubModule subModule = subModules.get(i % subModuleCount); // cycle through subModules
+//
+//            ModulePermissionEndpoint mpe = new ModulePermissionEndpoint();
+//            mpe.setActive(true);
+//            mpe.setCreatedBy("Super Admin");
+//            mpe.setLastModifiedBy("Super Admin");
+//            mpe.setEndpoint(endpoint);
+//            mpe.setSubModule(subModule);  // ✅ assign SubModule by round-robin
+//
+//            MpeHasRole mpeHasRole = new MpeHasRole();
+//            mpeHasRole.setRoles(superAdminRole);
+//            mpeHasRole.setActive(true);
+//            mpeHasRole.setCreatedBy("Super Admin");
+//            mpeHasRole.setModulePermissionEndpoint(mpe);
+//            mpe.setMpeHasRoles(Collections.singletonList(mpeHasRole));
+//
+//            modulePermissionEndpointRepo.save(mpe);
+//            mpeHasRolerepo.save(mpeHasRole);
+//
+//            System.out.println("Saved: Endpoint = " + endpoint.getEndpointUrl() +
+//                               ", SubModule = " + subModule.getSubmoduleName());
+//        }
+//        }
+//
+//        
+//    private Roles createSuperAdminRoleWithPermissions() {
+//        Roles superAdminRole = new Roles();
+//        superAdminRole.setRoles("SuperAdmin");
+//        superAdminRole.setRoleName("Super Administrator");
+//        superAdminRole.setLastModifiedBy("Super Administrator");
+//        superAdminRole.setActive(true);
+//        superAdminRole = rolesRepo.save(superAdminRole);
+//		return superAdminRole;
+//
+//}
+
+	@PostConstruct
+	@DependsOn("endpointInitializer")
+	@Transactional
+	public void initializeSuperAdmin() {
+
+		// Step 1: Create SuperAdmin role with permissions if not exist
+		Roles superAdminRole = rolesRepo.fetchRoleByName("SuperAdmin").stream().findFirst()
+				.orElseGet(this::createSuperAdminRoleWithPermissions);
+
+		// Step 2: Create SuperAdmin user if not exist
+		String superAdminUsername = superAdminProperties.getUsername();
+		if (registrationRepo.findByUsername(superAdminUsername).isEmpty()) {
+			Registration superAdminUser = new Registration();
+			superAdminUser.setUsername(superAdminUsername);
+			superAdminUser.setEmailId("superadmin123@gmail.com");
+			superAdminUser.setPassword(passwordEncoder.encode(superAdminProperties.getPassword()));
+			superAdminUser.setRoles(Set.of(superAdminRole));
+			superAdminUser.setActive(true);
+			registrationRepo.save(superAdminUser);
+		}
+
+		List<SubModule> subModules = new ArrayList<>();
+
+		Optional<AppModule> existingModuleOpt = moduleRepo.findByModuleName("RMS");
+		if (existingModuleOpt.isEmpty()) {
+			AppModule module = new AppModule();
+			module.setActive(true);
+			module.setModuleName("RMS");
+			module.setCreatedBy("Super Admin");
+			module.setLastModifiedBy("Super Admin");
+			module.setViewModuleName("RMS_FETCH_ACTIVE_MODULES");
+
+			// SubModules (unchanged as per your request)
+			SubModule subModule1 = new SubModule();
+			subModule1.setActive(true);
+			subModule1.setSubmoduleName("Modules Endpoints Manager");
+			subModule1.setCreatedBy("Super Admin");
+			subModule1.setLastModifiedBy("Super Admin");
+			subModule1.setSubmodulePath("/fetch-submodules");
+			subModule1.setViewSubmoduleName("Modules Endpoints Manager");
+
+			SubModule subModule2 = new SubModule();
+			subModule2.setActive(true);
+			subModule2.setSubmoduleName("Modules");
+			subModule2.setCreatedBy("Super Admin");
+			subModule2.setLastModifiedBy("SuperAdmin");
+
+			SubModule subModule3 = new SubModule();
+			subModule3.setActive(true);
+			subModule3.setSubmoduleName("Endpoints");
+			subModule3.setCreatedBy("SuperAdmin");
+			subModule3.setLastModifiedBy("SuperAdmin");
+
+			SubModule subModule4 = new SubModule();
+			subModule4.setActive(true);
+			subModule4.setSubmoduleName("Permission");
+			subModule4.setCreatedBy("SuperAdmin");
+			subModule4.setLastModifiedBy("SuperAdmin");
+
+			SubModule subModule5 = new SubModule();
+			subModule5.setActive(true);
+			subModule5.setSubmoduleName("Modules Permission Endpoints");
+			subModule5.setCreatedBy("SuperAdmin");
+			subModule5.setLastModifiedBy("SuperAdmin");
+
+			SubModule subModule6 = new SubModule();
+			subModule6.setActive(true);
+			subModule6.setSubmoduleName("Roles");
+			subModule6.setCreatedBy("SuperAdmin");
+			subModule6.setLastModifiedBy("SuperAdmin");
+
+			SubModule subModule7 = new SubModule();
+			subModule7.setActive(true);
+			subModule7.setSubmoduleName("test dynamic API");
+			subModule7.setCreatedBy("SuperAdmin");
+			subModule7.setLastModifiedBy("SuperAdmin");
+
+			SubModule subModule8 = new SubModule();
+			subModule8.setActive(true);
+			subModule8.setSubmoduleName("Set MPE");
+			subModule8.setCreatedBy("SuperAdmin");
+			subModule8.setLastModifiedBy("SuperAdmin");
+
+			subModules = List.of(subModule1, subModule2, subModule3, subModule4, subModule5, subModule6, subModule7,
+					subModule8);
+
+			subModules.forEach(sm -> sm.setAppModule(module));
+			module.setSubModules(subModules);
+
+			moduleRepo.save(module);
+			subModuleRepo.saveAll(subModules);
+		} else {
+			subModules = subModuleRepo.fetchByAppModule(existingModuleOpt.get()); // fetch from DB
+
+			System.out.println("subModules:::" + subModules);
+			System.out.println("AppModule 'RMS' already exists. Skipping creation.");
+		}
+
+		// Step 3: Load endpoints
+		List<Endpoint> allRmsEndpoints = endPointrepo.fetchRmsActiveEndPoints();
+
+		System.out.println("allRmsEndpoints::" + allRmsEndpoints);
+
+		List<Endpoint> activeEndpointsAfterLogin = endPointrepo.fetchEndpointsAfterLogin();
+		System.out.println("activeEndpointsAfterLogin::" + activeEndpointsAfterLogin);
+
+		Set<Endpoint> combinedEndpoints = new HashSet<>();
+		combinedEndpoints.addAll(allRmsEndpoints);
+		combinedEndpoints.addAll(activeEndpointsAfterLogin);
+
+		// endPointrepo.saveAll(combinedEndpoints); // Save any new endpoints
+
+		List<Endpoint> endpointsList = new ArrayList<>(combinedEndpoints);
+		// int subModuleCount = subModules.size();
+
+		 for (Endpoint endpoint : endpointsList) {
+	            for (SubModule subModule : subModules) {
+	                // 2a) Skip if already linked
+	                Optional<ModulePermissionEndpoint> existing = 
+	                modulePermissionEndpointRepo.findByEndpointAndSubModule(endpoint, subModule);
+	                if (existing.isPresent()) {
+	                    continue;
+	                }
+
+	                // 2b) Build a fresh junction entity
+	                ModulePermissionEndpoint mpe = new ModulePermissionEndpoint();
+	                mpe.setEndpoint(endpoint);
+	                mpe.setSubModule(subModule);
+	                mpe.setActive(true);
+	                mpe.setCreatedBy("SuperAdmin");        // or “SuperAdmin”
+	                mpe.setLastModifiedBy("SuperAdmin");
+
+	                // 2c) Persist
+	                modulePermissionEndpointRepo.save(mpe);
+	                
+	                boolean roleExists = mpeHasRolerepo.existsByModulePermissionEndpointAndRoles(mpe, superAdminRole);
+                    if (!roleExists) {
+                        MpeHasRole mpeHasRole = new MpeHasRole();
+                        mpeHasRole.setRoles(superAdminRole);
+                        mpeHasRole.setModulePermissionEndpoint(mpe);
+                        mpeHasRole.setActive(true);
+                        mpeHasRole.setCreatedBy("Super Admin");
+
+                        mpeHasRolerepo.save(mpeHasRole);
+                    }
+	            }
+	        }
+
+	}
+
+	private Roles createSuperAdminRoleWithPermissions() {
+		Roles superAdminRole = new Roles();
+		superAdminRole.setRoles("SuperAdmin");
+		superAdminRole.setRoleName("Super Administrator");
+		superAdminRole.setLastModifiedBy("Super Administrator");
+		superAdminRole.setActive(true);
+		return rolesRepo.save(superAdminRole);
+	}
+
+}
+
+//MpeHasRoleRepo
+
+package com.shoppingcard.repo;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import com.shoppingcard.entity.AppModule;
+import com.shoppingcard.entity.Endpoint;
+import com.shoppingcard.entity.ModulePermissionEndpoint;
+import com.shoppingcard.entity.MpeHasRole;
+import com.shoppingcard.entity.Roles;
+import com.shoppingcard.entity.SubModule;
+import org.springframework.data.repository.query.Param;
+public interface MpeHasRoleRepo extends JpaRepository<MpeHasRole, Integer> {
+
+	@Query("""
+			Select M1.endpoint from MpeHasRole M 
+			Join Roles R on R.id = M.roles.id 
+			Join ModulePermissionEndpoint M1 on M1.id = M.modulePermissionEndpoint.id 
+			Where M.isActive = true AND R.isActive = true AND M1.isActive = true 
+			AND R.roles = :roles
+			""")
+	List<Endpoint> fetchEndpointByRoleName(String roles);
+
+	@Query("""
+			Select M from MpeHasRole M 
+			Where M.roles.isActive = true AND M.isActive = true AND M.modulePermissionEndpoint.isActive = true 
+			AND M.roles.id = :roleId
+			""")
+	List<MpeHasRole> fetchActiveMpeByRole(short roleId);
+
+	@Query("""
+			Select M from MpeHasRole M 
+			Where M.roles.isActive = true 
+			AND M.roles.id = :roleId
+			""")
+	List<MpeHasRole> fetchAllMpesByRoleId(short roleId);
+	
+	@Query(""" 
+			Select M.modulePermissionEndpoint from MpeHasRole M 
+			Join Roles R on R.id = M.roles.id 
+			Where M.isActive = true AND R.isActive = true AND M.modulePermissionEndpoint.isActive = true 
+			AND R.roles = :roles
+			""")
+	List<ModulePermissionEndpoint> fetchMpeByRoles(String roles);
+	
+	@Query("""
+			Select M1.subModule from MpeHasRole M 
+			Join Roles R on R.id = M.roles.id 
+			Join ModulePermissionEndpoint M1 on M1.id = M.modulePermissionEndpoint.id 
+			Where M.isActive = true AND R.isActive = true AND M1.isActive = true 
+			AND R.roles = :roles
+			""")
+	List<SubModule> fetchModuleByRoles(String roles);
+	
+	
+
+	@Query("SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END " +
+		       "FROM MpeHasRole m WHERE m.modulePermissionEndpoint = :mpe AND m.roles = :roles")
+		boolean existsByModulePermissionEndpointAndRoles(@Param("mpe") ModulePermissionEndpoint mpe,
+		                                                 @Param("roles") Roles roles);
+}
+
+
+//ModulePermissionEndpointRepo
+
+package com.shoppingcard.repo;
+
+import java.util.List;
+import org.springframework.data.repository.query.Param;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import com.shoppingcard.entity.Endpoint;
+import com.shoppingcard.entity.ModulePermissionEndpoint;
+import com.shoppingcard.entity.Roles;
+import com.shoppingcard.entity.SubModule;
+
+public interface ModulePermissionEndpointRepo extends JpaRepository<ModulePermissionEndpoint, Integer> {
+
+	@Query("""
+			Select M from ModulePermissionEndpoint M 
+			Where M.subModule.isActive = true AND M.endpoint.isActive = true AND M.isActive = true
+			""")
+	List<ModulePermissionEndpoint> fetchActiveMpe();
+
+	@Query("""
+			Select M from ModulePermissionEndpoint M 
+			Where M.subModule.isActive = true AND M.endpoint.isActive = true AND M.isActive = true 
+			AND M.subModule.id = :subModuleId
+			""")
+	List<ModulePermissionEndpoint> fetchActiveMpesBySubModule(int subModuleId);
+
+	@Query("""
+			Select M from ModulePermissionEndpoint M 
+			Where M.subModule.isActive = true AND M.endpoint.isActive = true 
+			AND M.subModule.id = :subModuleId
+			""")
+	List<ModulePermissionEndpoint> findAllMpesBySubModule(int subModuleId);
+
+	@Query("SELECT mpe FROM ModulePermissionEndpoint mpe " +
+		       "WHERE mpe.endpoint = :endpoint AND mpe.subModule = :subModule")
+		Optional<ModulePermissionEndpoint> findByEndpointAndSubModule(@Param("endpoint") Endpoint endpoint,
+		                                                               @Param("subModule") SubModule subModule);
+
+}
+
+//SubModuleRepo
+
+package com.shoppingcard.repo;
+
+import java.util.List;
+import org.springframework.data.repository.query.Param;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import com.shoppingcard.entity.AppModule;
+import com.shoppingcard.entity.SubModule;
+
+public interface SubModuleRepo extends JpaRepository<SubModule, Integer> {
+
+	@Query("Select S from SubModule S where S.isActive = true")
+	List<SubModule> fetchActiveSubModule();
+
+	boolean existsBySubmoduleNameAndAppModuleId(String submoduleName, int appModuleId);
+	
+    
+	List<SubModule> findByAppModule(AppModule rmsModule);
+	
+	
+	@Query("SELECT s FROM SubModule s WHERE s.appModule = :appModule")
+    List<SubModule> fetchByAppModule(@Param("appModule") AppModule appModule);
+}
+
